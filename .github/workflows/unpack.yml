@@ -1,0 +1,30 @@
+name: Unpack POSTIK Android
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          unzip -o POSTIK_ANDROID_FULL2.zip -d extracted
+          cp -r extracted/. .
+          rm -rf extracted
+          rm -f POSTIK_ANDROID_FULL2.zip
+
+      - name: Commit project files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Add POSTIK Android project" || echo "Nothing to commit"
+          git push
