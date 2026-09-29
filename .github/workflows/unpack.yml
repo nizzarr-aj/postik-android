@@ -11,20 +11,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Find Android ZIP
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -iname 'POSTIK_ANDROID*.zip' | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "❌ Android ZIP not found in repository root."
+            exit 1
+          fi
+
+          echo "ZIP found: $ZIP"
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - name: Unzip project
         run: |
-          unzip -o POSTIK_ANDROID_FULL2.zip -d extracted
-          cp -r extracted/. .
           rm -rf extracted
-          rm -f POSTIK_ANDROID_FULL2.zip
+          mkdir extracted
 
-      - name: Commit project files
+          unzip -o "$ZIP" -d extracted
+
+          echo "✅ ZIP extracted"
+
+      - name: Copy Android project to repository
+        run: |
+          find extracted -type f \
+            ! -path '*/.git/*' \
+            -exec sh -c '
+              file="$1"
+              rel="${file#extracted/}"
+              mkdir -p "$(dirname "$rel")"
+              cp "$file" "$rel"
+            ' sh {} \;
+
+          echo "✅ Android project copied"
+
+      - name: Remove ZIP and temporary files
+        run: |
+          rm -rf extracted
+          rm -f "$ZIP"
+
+      - name: Commit Android project
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
           git add .
-          git commit -m "Add POSTIK Android project" || echo "Nothing to commit"
-          git push
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No changes to commit."
+          else
+            git commit -m "Build POSTIK Android project"
+            git push
+          fi
