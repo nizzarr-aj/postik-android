@@ -30,15 +30,14 @@ jobs:
         run: |
           rm -rf extracted
           mkdir extracted
-
           unzip -o "$ZIP" -d extracted
+          echo "✅ ZIP extracted successfully"
 
-          echo "✅ ZIP extracted"
-
-      - name: Copy Android project to repository
+      - name: Copy Android project
         run: |
           find extracted -type f \
             ! -path '*/.git/*' \
+            ! -path '*/.github/workflows/*' \
             -exec sh -c '
               file="$1"
               rel="${file#extracted/}"
@@ -48,7 +47,7 @@ jobs:
 
           echo "✅ Android project copied"
 
-      - name: Remove ZIP and temporary files
+      - name: Remove temporary files
         run: |
           rm -rf extracted
           rm -f "$ZIP"
@@ -64,5 +63,5 @@ jobs:
             echo "ℹ️ No changes to commit."
           else
             git commit -m "Build POSTIK Android project"
-            git push
+            git push origin HEAD:main
           fi
