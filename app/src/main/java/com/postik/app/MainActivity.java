@@ -1,6 +1,8 @@
 package com.postik.app;
 
 import android.app.Activity;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.webkit.CookieManager;
@@ -12,10 +14,11 @@ import android.webkit.WebViewClient;
 
 public class MainActivity extends Activity {
     private WebView webView;
-    private static final String URL = "https://nizzarr-aj.github.io/postik/";
+    private static final String URL = "https://nizzarr-aj.github.io/postik/?v=22";
 
     private WebView makeWebView() {
         WebView w = new WebView(this);
+        w.setBackgroundColor(Color.rgb(7, 7, 17));
         WebSettings s = w.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -24,22 +27,26 @@ public class MainActivity extends Activity {
         s.setSupportMultipleWindows(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMediaPlaybackRequiresUserGesture(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            w.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, true);
+        }
 
         CookieManager cm = CookieManager.getInstance();
         cm.setAcceptCookie(true);
         cm.setAcceptThirdPartyCookies(w, true);
 
-        // Avoid black/blank WebView rendering on some Android 11 devices.
-        w.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
+        // Keep WebView on the normal hardware renderer.
+        // Forcing SOFTWARE rendering can cause intermittent black screens on some Android 11 devices.
+        w.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         w.setWebViewClient(new WebViewClient() {
             @Override public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 CookieManager.getInstance().flush();
+                view.setVisibility(View.VISIBLE);
             }
 
             @Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-                // Recreate the WebView if Android kills its renderer.
                 recreateWebView();
                 return true;
             }
@@ -72,7 +79,10 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (webView != null) webView.onResume();
+        if (webView != null) {
+            webView.onResume();
+            webView.postDelayed(() -> { if (webView != null) webView.invalidate(); }, 120);
+        }
     }
 
     @Override public void onBackPressed() {
