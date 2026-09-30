@@ -15,8 +15,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
     private WebView webView;
 
-    // Open the freshly updated POSTIK website and bypass the old WebView cache.
-    private static final String URL = "https://nizzarr-aj.github.io/postik/?v=23";
+    // Current POSTIK website. The web page itself cache-busts its v26 assets.
+    private static final String URL = "https://nizzarr-aj.github.io/postik/?v=26";
 
     private WebView makeWebView() {
         WebView w = new WebView(this);
@@ -31,10 +31,7 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setJavaScriptCanOpenWindowsAutomatically(true);
         s.setSupportMultipleWindows(false);
-
-        // Always request the newest web assets.
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
-
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
@@ -55,13 +52,10 @@ public class MainActivity extends Activity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 CookieManager.getInstance().flush();
-
-                // Keep the RTL page pinned horizontally at the left edge.
                 view.evaluateJavascript(
                     "try{document.documentElement.scrollLeft=0;document.body.scrollLeft=0;}catch(e){}",
                     null
                 );
-
                 view.setVisibility(View.VISIBLE);
                 view.invalidate();
             }
@@ -82,7 +76,6 @@ public class MainActivity extends Activity {
             webView.stopLoading();
             webView.destroy();
         }
-
         webView = makeWebView();
         setContentView(webView);
         webView.loadUrl(URL);

@@ -2,12 +2,37 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'com.postik.app'
-    compileSdk 35
+    compileSdk 36
+
     defaultConfig {
         applicationId 'com.postik.app'
         minSdk 23
-        targetSdk 35
-        versionCode 6
-        versionName '1.5'
+        targetSdk 36
+        versionCode 7
+        versionName '1.6'
+    }
+
+    signingConfigs {
+        release {
+            def ks = project.findProperty('POSTIK_KEYSTORE_FILE')
+            def kp = project.findProperty('POSTIK_KEYSTORE_PASSWORD')
+            def ka = project.findProperty('POSTIK_KEY_ALIAS')
+            def pp = project.findProperty('POSTIK_KEY_PASSWORD')
+            if (ks && kp && ka && pp) {
+                storeFile file(ks)
+                storePassword kp
+                keyAlias ka
+                keyPassword pp
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (project.findProperty('POSTIK_KEYSTORE_FILE')) {
+                signingConfig signingConfigs.release
+            }
+        }
     }
 }
