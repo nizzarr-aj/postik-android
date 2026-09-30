@@ -1,36 +1,66 @@
-name: Build POSTIK Android APK
+name: Unpack POSTIK Android
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build:
+  unpack:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+      - name: Find POSTIK ZIP
+        shell: bash
+        run: |
+          set -e
+          ZIP=$(find . -maxdepth 1 -type f -iname 'POSTIK_ANDROID*.zip' | head -n 1)
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.10'
+          if [ -z "$ZIP" ]; then
+            echo "❌ POSTIK_ANDROID ZIP not found"
+            exit 1
+          fi
 
-      - name: Build APK
-        run: gradle assembleDebug --no-daemon
+          echo "✅ Found: $ZIP"
+          unzip -o "$ZIP" -d extracted
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: POSTIK-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      - name: Copy Android project
+        shell: bash
+        run: |
+          set -e
+
+          if [ -d "extracted/app" ]; then
+            cp -R extracted/. .
+          else
+            PROJECT=$(find extracted -maxdepth 2 -type d -name app | head -n 1)
+
+            if [ -z "$PROJECT" ]; then
+              echo "❌ Android app folder not found"
+              exit 1
+            fi
+
+            ROOT=$(dirname "$PROJECT")
+            cp -R "$ROOT"/. .
+          fi
+
+          echo "✅ POSTIK Android project unpacked"
+
+      - name: Commit project
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -A
+          git reset -- '*.zip'
+
+          if git diff --cached --quiet; then
+            echo "ℹ️ No changes to commit"
+          else
+            git commit -m "Install POSTIK Android project with new logo"
+            git push
+          fi
