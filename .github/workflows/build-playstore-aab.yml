@@ -13,6 +13,40 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Restore the Android manifest and resources from the last
+      # known-working Android build.
+      # We intentionally DO NOT restore app/build.gradle.
+      - name: Restore Android manifest and resources
+        run: |
+          set -e
+
+          git checkout 5336070ed7e4e6b7ebbea20b9cd7c5602aecc8f3 -- \
+            app/src/main/AndroidManifest.xml \
+            app/src/main/res
+
+          echo "Android manifest and resources restored."
+          echo "Current Play Store build.gradle will be preserved."
+
+      - name: Verify Android project
+        run: |
+          set -e
+
+          echo "===== app/build.gradle ====="
+          cat app/build.gradle
+
+          echo "===== AndroidManifest.xml ====="
+          cat app/src/main/AndroidManifest.xml
+
+          echo "===== MainActivity.java ====="
+          test -f app/src/main/java/com/postik/app/MainActivity.java
+          echo "MainActivity.java OK"
+
+          echo "===== Resources ====="
+          test -d app/src/main/res
+          echo "res directory OK"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -23,23 +57,32 @@ jobs:
       - name: Setup Android SDK
         run: |
           set -e
+
           export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+
           echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
 
+          echo "Android SDK: $ANDROID_HOME"
+
       - name: Install Android 36 SDK
         run: |
           set -e
+
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -x "$SDKMANAGER" ]; then
-            echo "sdkmanager not found"
+            echo "sdkmanager not found at:"
+            echo "$SDKMANAGER"
             exit 1
           fi
 
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0"
+
+          "$SDKMANAGER" \
+            "platforms;android-36" \
+            "build-tools;36.0.0"
 
       - name: Prepare signing key
         env:
@@ -52,8 +95,13 @@ jobs:
             exit 1
           fi
 
-          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/postik-upload-key.jks"
+          echo "$KEYSTORE_B64" \
+            | base64 --decode \
+            > "$RUNNER_TEMP/postik-upload-key.jks"
+
           chmod 600 "$RUNNER_TEMP/postik-upload-key.jks"
+
+          echo "Signing key prepared."
 
       - name: Build signed Release AAB
         env:
@@ -64,16 +112,42 @@ jobs:
         run: |
           set -e
 
-          if [ -z "$POSTIK_KEYSTORE_PASSWORD" ] || [ -z "$POSTIK_KEY_ALIAS" ] || [ -z "$POSTIK_KEY_PASSWORD" ]; then
-            echo "Missing one or more POSTIK signing secrets"
+          if [ -z "$POSTIK_KEYSTORE_PASSWORD" ]; then
+            echo "Missing POSTIK_KEYSTORE_PASSWORD"
             exit 1
           fi
+
+          if [ -z "$POSTIK_KEY_ALIAS" ]; then
+            echo "Missing POSTIK_KEY_ALIAS"
+            exit 1
+          fi
+
+          if [ -z "$POSTIK_KEY_PASSWORD" ]; then
+            echo "Missing POSTIK_KEY_PASSWORD"
+            exit 1
+          fi
+
+          echo "Starting signed Release AAB build..."
 
           gradle bundleRelease --no-daemon \
             -PPOSTIK_KEYSTORE_FILE="$POSTIK_KEYSTORE_FILE" \
             -PPOSTIK_KEYSTORE_PASSWORD="$POSTIK_KEYSTORE_PASSWORD" \
             -PPOSTIK_KEY_ALIAS="$POSTIK_KEY_ALIAS" \
             -PPOSTIK_KEY_PASSWORD="$POSTIK_KEY_PASSWORD"
+
+      - name: Verify AAB
+        run: |
+          set -e
+
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+
+          if [ ! -f "$AAB" ]; then
+            echo "AAB file was not created."
+            exit 1
+          fi
+
+          echo "AAB created successfully:"
+          ls -lh "$AAB"
 
       - name: Upload Play Store AAB
         uses: actions/upload-artifact@v4
