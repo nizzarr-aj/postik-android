@@ -1,3 +1,1 @@
-POSTIK Android
-Live website: https://nizzarr-aj.github.io/postik/
-Build: GitHub Actions -> Build POSTIK APK
+POSTIK Android 1.3 - launcher icon FIXED using mipmap/ic_launcher in all Android densities. Unpack then Build. Uninstall older POSTIK before installing if launcher cache keeps the old icon.
