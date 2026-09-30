@@ -25,36 +25,60 @@ jobs:
             exit 1
           fi
 
-          echo "Found: $ZIP"
+          echo "Found ZIP: $ZIP"
 
           rm -rf extracted
           mkdir extracted
           unzip -o "$ZIP" -d extracted
 
-      - name: Apply Android Play Store files
+      - name: Locate package folder
         run: |
           set -e
 
-          if [ -d extracted/app ]; then
-            cp -R extracted/app .
+          ROOT=$(find extracted -mindepth 1 -maxdepth 1 -type d | head -n 1)
+
+          if [ -z "$ROOT" ]; then
+            echo "Package folder not found"
+            exit 1
           fi
 
-          for file in build.gradle gradle.properties settings.gradle; do
-            if [ -f "extracted/$file" ]; then
-              cp "extracted/$file" .
-            fi
-          done
+          echo "Package root: $ROOT"
+          echo "PACKAGE_ROOT=$ROOT" >> "$GITHUB_ENV"
 
-          if [ -f extracted/README.txt ]; then
-            cp extracted/README.txt .
+      - name: Apply Play Store Android files
+        run: |
+          set -e
+
+          if [ -d "$PACKAGE_ROOT/app" ]; then
+            rm -rf app
+            cp -R "$PACKAGE_ROOT/app" .
           fi
+
+          if [ -f "$PACKAGE_ROOT/build.gradle" ]; then
+            cp "$PACKAGE_ROOT/build.gradle" .
+          fi
+
+          if [ -f "$PACKAGE_ROOT/gradle.properties" ]; then
+            cp "$PACKAGE_ROOT/gradle.properties" .
+          fi
+
+          if [ -f "$PACKAGE_ROOT/settings.gradle" ]; then
+            cp "$PACKAGE_ROOT/settings.gradle" .
+          fi
+
+          echo "POSTIK Play Store files applied."
+
+      - name: Show Android version
+        run: |
+          echo "Checking app/build.gradle:"
+          cat app/build.gradle
 
       - name: Commit Play Store update
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add app build.gradle gradle.properties settings.gradle README.txt 2>/dev/null || true
+          git add app build.gradle gradle.properties settings.gradle 2>/dev/null || true
 
           if git diff --cached --quiet; then
             echo "No changes to commit"
