@@ -1,67 +1,36 @@
-name: Unpack POSTIK Android
+name: Build POSTIK Android APK
 
 on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  unpack:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find Android ZIP
-        run: |
-          ZIP=$(find . -maxdepth 1 -type f -iname 'POSTIK_ANDROID*.zip' | head -n 1)
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-          if [ -z "$ZIP" ]; then
-            echo "❌ Android ZIP not found in repository root."
-            exit 1
-          fi
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
 
-          echo "ZIP found: $ZIP"
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
 
-      - name: Unzip project
-        run: |
-          rm -rf extracted
-          mkdir extracted
-          unzip -o "$ZIP" -d extracted
-          echo "✅ ZIP extracted successfully"
-
-      - name: Copy Android project
-        run: |
-          find extracted -type f \
-            ! -path '*/.git/*' \
-            ! -path '*/.github/workflows/*' \
-            -exec sh -c '
-              file="$1"
-              rel="${file#extracted/}"
-              mkdir -p "$(dirname "$rel")"
-              cp "$file" "$rel"
-            ' sh {} \;
-
-          echo "✅ Android project copied"
-
-      - name: Remove temporary files
-        run: |
-          rm -rf extracted
-          rm -f "$ZIP"
-
-      - name: Commit Android project
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add .
-
-          if git diff --cached --quiet; then
-            echo "ℹ️ No changes to commit."
-          else
-            git commit -m "Build POSTIK Android project"
-            git push origin HEAD:main
-          fi
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: POSTIK-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
